@@ -1,5 +1,5 @@
 import {Router} from 'express'
-import { currentUserDetails, isUserNameAvailable, loginUser, logOutUser, refreshToken, signUpUser, uploadVideo, userVideos, verifyJWT ,verifyUser} from '../controllers/user.controller.js'
+import { currentUserDetails, getVideoDetails, isUserNameAvailable, loginUser, logOutUser, refreshToken, signUpUser, uploadVideo, userVideos, verifyJWT ,verifyUser} from '../controllers/user.controller.js'
 import { uploadFile } from '../middlewares/fileUploader.middleware.js'
 
 const router = Router()
@@ -16,4 +16,5 @@ router.route("/uploadVideo").post(verifyJWT,uploadFile.fields([
     {name:"thumbnail",maxCount:1}
 ]),verifyJWT,uploadVideo)
 router.route("/userVideos").post(verifyJWT,userVideos)
+router.route("/getVideoDetails").post(getVideoDetails)
 export default router

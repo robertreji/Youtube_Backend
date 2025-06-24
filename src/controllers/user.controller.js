@@ -234,3 +234,28 @@ export const userVideos = asyncHandler(async (req,res)=>{
       console.log(error)
    }
 })
+
+export const getVideoDetails = asyncHandler(async(req,res)=>{
+   const {videoId} = req.body
+   console.log("videoid",videoId)
+   if(!videoId) throw new ApiError(402,"video id didnt recieved !!")
+   const video = await Video.aggregate(
+      [
+         {
+            $match: {
+            _id:new mongoose.Types.ObjectId(videoId)
+         }
+         },
+      {
+      $lookup: {
+         from: "users",
+         localField: "owner",
+         foreignField: "_id",
+         as: "ownerDetails"
+         }
+      }
+   ])
+   if(!video) throw new ApiError(402,"video doesnt exists..")
+      console.log("sucess")
+   res.status(200).json(new ApiResponse(200,video,"sucess"))
+})
