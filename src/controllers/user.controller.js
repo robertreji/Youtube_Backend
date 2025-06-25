@@ -6,6 +6,7 @@ import { uploadToCloudinary } from '../utils/cloudinaryUpload.js'
 import jwt from 'jsonwebtoken'
 import { Video } from '../models/video.model.js'
 import mongoose from 'mongoose'
+import { Subscription } from '../models/Subscriptions.js'
 export const signUpUser =asyncHandler(async (req,res)=>{
    const  {username,password} =req.body
 
@@ -258,4 +259,106 @@ export const getVideoDetails = asyncHandler(async(req,res)=>{
    if(!video) throw new ApiError(402,"video doesnt exists..")
       console.log("sucess")
    res.status(200).json(new ApiResponse(200,video,"sucess"))
+})
+
+export const isSubscribed = asyncHandler(async (req,res)=>{
+   const user =req.user
+   const {channelId} = req.body
+    const subcribed=await Subscription.aggregate([
+      {
+         $match: {
+            subscriber:new mongoose.Types.ObjectId(user._id),
+            channel:new mongoose.Types.ObjectId(channelId)
+         }
+      }
+      ])
+      if(subcribed.length>0)return res.status(200).json(new ApiResponse(200,{isSubscribed :true},"subscribed"))
+     return res.status(200).json(new ApiResponse(200,{isSubscribed :false},"not subscribed"))
+})
+export const subscribetoChannel = asyncHandler(async(req,res)=>{
+   const user = req.user
+   const {channelId} = req.body
+   if(!(user && channelId))throw new ApiError(403,"user or channel didint recieved")
+   const alreadySubscribed = await Subscription.aggregate([
+      {
+         $match: {
+            subscriber:new mongoose.Types.ObjectId(user._id),
+            channel:new mongoose.Types.ObjectId(channelId)
+         }
+      }
+   ])
+   if(alreadySubscribed.length>0)throw new ApiError(403,"user already exists")
+   const subscription = await Subscription.create(
+      {
+         subscriber:user._id,
+         channel:channelId
+      })
+   if(!subscription)throw new ApiError(501,"unablel to subscribe at this moment...")
+   
+   res.status(200).json(new ApiResponse(200,subscription,"sucessfully subscribed"))
+})
+export const unsubscribetoChannel = asyncHandler(async(req,res)=>{
+   const user = req.user
+   const {channelId} =req.body
+   if(!(user && channelId))throw new ApiError(403,"user or channel didint recieved")
+   
+  const subscription= await Subscription.aggregate([
+      {
+         $match: {
+            subscriber:new mongoose.Types.ObjectId(user._id),
+            channel:new mongoose.Types.ObjectId(channelId)
+         }
+      }
+   ])
+   await Subscription.deleteOne({_id:subscription[0]._id})
+
+   res.status(200).json(new ApiResponse(200,{},"sucessfully unssubscribed"))
+})
+
+export const getSubscriberCount = asyncHandler(async (req,res)=>{
+   const {channelId} = req.body
+   console.log("channel id :",channelId)
+   const subscriberCount=  await User.aggregate([
+      {
+         $match: {
+            _id:new mongoose.Types.ObjectId(channelId)
+         }
+      },
+      {
+         $lookup: {
+            from: "subscriptions",
+            localField: "_id",
+            foreignField: "channel",
+            as: "subscribers"
+         }
+      }
+      ])
+   res.status(200).json(new ApiResponse(200,{totalSubscribers:subscriberCount[0].subscribers.length},"fetched subscriber count sucessfully"))
+})
+export const getAllvideos=asyncHandler(async (req,res)=>{
+   const videos = await Video.aggregate([
+  {
+    $project: {
+      owner: 1,
+      createdAt: 1,
+      thumbnail: 1,
+      __v: 1,
+      description: 1,
+      _id: 1,
+      videoFile: 1,
+      title: 1,
+      views: 1,
+      updatedAt: 1
+    }
+  },
+  {
+    $lookup: {
+      from: "users",
+      localField: "owner",
+      foreignField: "_id",
+      as: "user"
+    }
+  }
+])
+res.json(new ApiResponse(200,videos,"fetched all videos"))
 })

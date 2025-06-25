@@ -1,5 +1,5 @@
 import {Router} from 'express'
-import { currentUserDetails, getVideoDetails, isUserNameAvailable, loginUser, logOutUser, refreshToken, signUpUser, uploadVideo, userVideos, verifyJWT ,verifyUser} from '../controllers/user.controller.js'
+import { currentUserDetails, getAllvideos, getSubscriberCount, getVideoDetails, isSubscribed, isUserNameAvailable, loginUser, logOutUser, refreshToken, signUpUser, subscribetoChannel, unsubscribetoChannel, uploadVideo, userVideos, verifyJWT ,verifyUser} from '../controllers/user.controller.js'
 import { uploadFile } from '../middlewares/fileUploader.middleware.js'
 
 const router = Router()
@@ -17,4 +17,9 @@ router.route("/uploadVideo").post(verifyJWT,uploadFile.fields([
 ]),verifyJWT,uploadVideo)
 router.route("/userVideos").post(verifyJWT,userVideos)
 router.route("/getVideoDetails").post(getVideoDetails)
+router.route("/subscribeToChannel").post(verifyJWT,subscribetoChannel)
+router.route("/unsubscribeToChannel").post(verifyJWT,unsubscribetoChannel)
+router.route("/getSubscriberCount").post(getSubscriberCount)
+router.route("/isSubscribed").post(verifyJWT,isSubscribed)
+router.route("/getAllvideos").get(getAllvideos)
 export default router
