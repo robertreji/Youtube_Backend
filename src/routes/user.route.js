@@ -1,5 +1,5 @@
 import {Router} from 'express'
-import { currentUserDetails, getAllvideos, getSubscriberCount, getVideoDetails, isSubscribed, isUserNameAvailable, loginUser, logOutUser, refreshToken, signUpUser, subscribetoChannel, unsubscribetoChannel, uploadVideo, userVideos, verifyJWT ,verifyUser} from '../controllers/user.controller.js'
+import { comment, currentUserDetails, getAllvideos, getcomments, getMoreVideosFromChannel, getSubscriberCount, getVideoDetails, getWatchHistory, isLiked, isSubscribed, isUserNameAvailable, likeVideo, loginUser, logOutUser, refreshToken, signUpUser, subscribetoChannel, totalLikes, unlikeVideo, unsubscribetoChannel, upDateWatchHistory, uploadVideo, userVideos, verifyJWT ,verifyUser} from '../controllers/user.controller.js'
 import { uploadFile } from '../middlewares/fileUploader.middleware.js'
 
 const router = Router()
@@ -22,4 +22,13 @@ router.route("/unsubscribeToChannel").post(verifyJWT,unsubscribetoChannel)
 router.route("/getSubscriberCount").post(getSubscriberCount)
 router.route("/isSubscribed").post(verifyJWT,isSubscribed)
 router.route("/getAllvideos").get(getAllvideos)
+router.route("/likeVideo").post(verifyJWT,likeVideo)
+router.route("/unlikeVideo").post(verifyJWT,unlikeVideo)
+router.route("/islikeVideo").post(verifyJWT,isLiked)
+router.route("/totalLikes").post(totalLikes)
+router.route("/getMoreVideosFromChannel").post(getMoreVideosFromChannel)
+router.route("/comment").post(verifyJWT,comment)
+router.route("/getAllComments").post(getcomments)
+router.route("/updateWatchHistory").post(verifyJWT,upDateWatchHistory)
+router.route("/getUserWatchHistory").post(verifyJWT,getWatchHistory)
 export default router

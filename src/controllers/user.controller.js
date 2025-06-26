@@ -7,6 +7,9 @@ import jwt from 'jsonwebtoken'
 import { Video } from '../models/video.model.js'
 import mongoose from 'mongoose'
 import { Subscription } from '../models/Subscriptions.js'
+import { Like } from '../models/Like.models.js'
+import { Comment } from '../models/comment.models.js'
+
 export const signUpUser =asyncHandler(async (req,res)=>{
    const  {username,password} =req.body
 
@@ -119,6 +122,7 @@ export const currentUserDetails = (req,res)=>{
    return res.json(new ApiResponse(200,currentUser,"current user details"))
 }
 
+
 export const verifyUser = asyncHandler(async (req,res)=>{
       const accessToken = req.cookies.accessToken
       if(!accessToken) throw new ApiError(419,"acess token didint recieved")
@@ -203,7 +207,6 @@ export const uploadVideo = asyncHandler(async(req,res)=>{
 
 export const userVideos = asyncHandler(async (req,res)=>{
    const user = req.user
-   console.log(user)
    if(!user)throw new ApiError(401,"user not verified")
    try {
       const userVideos = await User.aggregate(
@@ -235,10 +238,106 @@ export const userVideos = asyncHandler(async (req,res)=>{
       console.log(error)
    }
 })
+export const getMoreVideosFromChannel = asyncHandler(async (req,res)=>{
+   const {userId} = req.body
+   if(!userId)throw new ApiError(401,"user not verified")
+   try {
+      const userVideos = await User.aggregate(
+         [
+            {
+               $match: {
+                  _id:new mongoose.Types.ObjectId(userId)
+               }
+            },
+            {
+               $lookup: {
+                  from: "videos",
+                  localField: "_id",
+                  foreignField: "owner",
+                  as: "userVideos"
+               }
+            },
+            {
+               $project: {
+                  "_id":0,
+                  "userVideos":1
+               }
+            }
+         ]
+      )
+      console.log("user videos :",userVideos)
+      res.status(200).json(new ApiResponse(200,userVideos,"sucess"))
+   } catch (error) {
+      console.log(error)
+   }
+})
+
+export const upDateWatchHistory = asyncHandler(async(req,res)=>{
+   const user = req.user
+   const {videoId} = req.body
+
+   if(!(user &&  videoId ))throw new ApiError(403,"user and video id didint recieved..")
+try {
+   
+      await User.findByIdAndUpdate(user._id,
+         {
+           $addToSet:{watchHistory:videoId}
+         }
+      )
+   
+      res.json(new ApiResponse(200,{},"sucess"))
+} catch (error) {
+   return res.json("already aded in list")
+}
+})
+export const getWatchHistory = asyncHandler(async (req,res)=>{
+   const user = req.user
+  const watHistory= await User.aggregate([
+  {
+    $match: {
+      _id:new  mongoose.Types.ObjectId(user._id)}
+  },
+  {
+    $lookup: {
+      from: "videos",
+      localField: "watchHistory",
+      foreignField: "_id",
+      as: "watchHistoryVideos"
+    }
+  },
+  {
+    $unwind: "$watchHistoryVideos"
+  },
+  {
+    $lookup: {
+      from: "users",
+      localField: "watchHistoryVideos.owner", 
+      foreignField: "_id",
+      as: "watchHistoryVideos.ownerDetails"
+    }
+  },
+  {
+    $unwind: "$watchHistoryVideos.ownerDetails"
+  },
+  {
+    $group: {
+      _id: null,
+      watchHistoryVideos: { $push: "$watchHistoryVideos" }
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      watchHistoryVideos: 1
+    }
+  }
+]
+)
+   res.status(200).json(new ApiResponse(200,{watchHistory:watHistory},"watch History fetched sucessfully"))
+})
 
 export const getVideoDetails = asyncHandler(async(req,res)=>{
    const {videoId} = req.body
-   console.log("videoid",videoId)
    if(!videoId) throw new ApiError(402,"video id didnt recieved !!")
    const video = await Video.aggregate(
       [
@@ -335,6 +434,7 @@ export const getSubscriberCount = asyncHandler(async (req,res)=>{
       ])
    res.status(200).json(new ApiResponse(200,{totalSubscribers:subscriberCount[0].subscribers.length},"fetched subscriber count sucessfully"))
 })
+
 export const getAllvideos=asyncHandler(async (req,res)=>{
    const videos = await Video.aggregate([
   {
@@ -362,3 +462,149 @@ export const getAllvideos=asyncHandler(async (req,res)=>{
 ])
 res.json(new ApiResponse(200,videos,"fetched all videos"))
 })
+
+
+
+
+export const likeVideo =asyncHandler(async(req,res)=>{
+   const {videoId}  = req.body
+   const user = req.user
+   const alreadyLiked=await Like.aggregate([
+      {
+         $match:{
+            video:new mongoose.Types.ObjectId(videoId),
+            likedBy:new mongoose.Types.ObjectId(user._id)
+         }
+      }
+   ])
+   if(alreadyLiked.length>0) throw new ApiError(404,"already liked")
+   await Like.create({
+      video:new mongoose.Types.ObjectId(videoId),
+      likedBy:new mongoose.Types.ObjectId(user._id)
+    })
+   
+   res.json("sucess")
+})
+export const isLiked =asyncHandler(async (req,res)=>{
+   const {videoId}  = req.body
+   const user = req.user
+if (!videoId) {
+  throw new ApiError(400, "videoId is required");
+}
+
+   const like = await Like.findOne({
+  video: new mongoose.Types.ObjectId(videoId),
+  likedBy: new mongoose.Types.ObjectId(user._id)
+});
+
+   console.log("liked?",like)
+     if(like)return res.status(200).json(new ApiResponse(200,{isLiked :true},"liked"))
+     return res.status(200).json(new ApiResponse(200,{isLiked :false},"not liked"))
+})
+export const unlikeVideo =asyncHandler(async (req,res)=>{
+   const {videoId}  = req.body
+   const user = req.user
+
+   const like=await Like.aggregate([
+      {
+         $match:{
+            video:new mongoose.Types.ObjectId(videoId),
+            likedBy:new mongoose.Types.ObjectId(user._id)
+
+         }
+      }
+   ])
+   await Like.deleteOne({_id:like[0]._id})
+   res.status(200).json(new ApiResponse(200,{},"sucessfully disliked"))
+
+})
+export const totalLikes = asyncHandler(async (req,res)=>{
+   const {videoId} = req.body
+
+  const likes= await Video.aggregate([
+      {
+         $match: {
+            _id:new mongoose.Types.ObjectId(videoId)
+         }
+      },
+      {
+         $lookup: {
+            from: "likes",
+            localField: "_id",
+            foreignField: "video",
+            as: "totallikes"
+         }
+      }
+      ])
+      console.log("total likes : ",likes[0])
+   res.status(200).json(new ApiResponse(200,{totalLikes:likes[0].totallikes},"secessfully fetched total likes"))
+})
+export const comment = asyncHandler(async (req,res)=>{
+   const user = req.user
+   const {videoId,comment} = req.body
+   if(!(user && videoId))throw new ApiError(403,"user id and video id didint recived..")
+
+   await Comment.create({
+      video:videoId,
+      content:comment,
+      owner:user._id
+   })
+   res.json("sucess")
+})
+
+export const getcomments = asyncHandler(async(req,res)=>{
+   const {videoId} = req.body
+   console.log("video IDDDDDDD:",videoId)
+   const comments =await Video.aggregate([
+      {
+         $match: {
+            _id:new mongoose.Types.ObjectId(videoId)
+         }
+      },
+      {
+         $lookup: {
+            from: "comments",
+            let: { videoId: "$_id" },  
+            pipeline: [
+            {
+               $match: {
+                  $expr: {
+                  $eq: ["$video", "$$videoId"]
+                  }
+               }
+            },
+            {
+               $sort: { createdAt: -1 } 
+            },
+            {
+               $lookup: {
+                  from: "users",
+                  localField: "owner",
+                  foreignField: "_id",
+                  as: "ownerDetails"
+               }
+            },
+            {
+               $unwind: "$ownerDetails"
+            },
+            {
+               $project: {
+                  content: 1,
+                  createdAt: 1,
+                  "ownerDetails.username": 1,
+                  "ownerDetails.avatar": 1
+               }
+            }
+            ],
+            as: "comment"
+         }
+      },
+      {
+         $project: {
+            comment:1
+         }
+      }
+      ])
+   res.json(new ApiResponse(200,{Comments:comments}),"sucess")
+})
+
